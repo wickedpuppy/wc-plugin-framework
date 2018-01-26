@@ -117,6 +117,9 @@ abstract class SV_WC_Payment_Gateway extends \WC_Payment_Gateway {
 	/** Customer ID feature */
 	const FEATURE_CUSTOMER_ID = 'customer_id';
 
+	/** My Account Payment Methods feature */
+	const FEATURE_PAYMENT_METHODS = 'payment_methods';
+
 	/** Add new payment method feature */
 	const FEATURE_ADD_PAYMENT_METHOD = 'add_payment_method';
 
@@ -194,6 +197,9 @@ abstract class SV_WC_Payment_Gateway extends \WC_Payment_Gateway {
 
 	/** @var array of SV_WC_Payment_Gateway_Integration objects for Subscriptions, Pre-Orders, etc. */
 	protected $integrations;
+
+	/** @var PaymentGateway\Frontend frontend handler instance */
+	protected $frontend;
 
 
 	/**
@@ -299,6 +305,10 @@ abstract class SV_WC_Payment_Gateway extends \WC_Payment_Gateway {
 		// pay page fallback
 		$this->add_pay_page_handler();
 
+		if ( ! is_admin() ) {
+			$this->init_frontend();
+		}
+
 		// filter order received text for held orders
 		add_filter( 'woocommerce_thankyou_order_received_text', array( $this, 'maybe_render_held_order_received_text' ), 10, 2 );
 
@@ -314,6 +324,35 @@ abstract class SV_WC_Payment_Gateway extends \WC_Payment_Gateway {
 
 		// add API request logging
 		$this->add_api_request_logging();
+	}
+
+
+	/**
+	 * Initializes the frontend handler.
+	 *
+	 * @since 5.1.0-dev
+	 */
+	protected function init_frontend() {
+
+		$path = $this->get_plugin()->get_payment_gateway_framework_path();
+
+		require_once( "$path/Frontend.php" );
+		require_once( "$path/Frontend/Payment_Methods.php" );
+
+		$this->frontend = new PaymentGateway\Frontend( $this );
+	}
+
+
+	/**
+	 * Gets the frontend handler instance.
+	 *
+	 * @since 5.1.0-dev
+	 *
+	 * @return PaymentGateway\Frontend
+	 */
+	public function get_frontend_instance() {
+
+		return $this->frontend;
 	}
 
 
@@ -3317,6 +3356,22 @@ abstract class SV_WC_Payment_Gateway extends \WC_Payment_Gateway {
 		 * @param SV_WC_Payment_Gateway $gateway gateway object
 		 */
 		return apply_filters( 'wc_' . $this->get_id() . '_paid_capture_enabled', 'yes' === $this->enable_paid_capture, $this );
+	}
+
+
+	/** Payment Methods feature ***********************************************/
+
+
+	/**
+	 * Determines if the gateway supports the Payment Methods screen.
+	 *
+	 * @since 5.1.0-dev
+	 *
+	 * @return bool
+	 */
+	public function supports_payment_methods() {
+
+		return $this->supports_tokenization() && $this->supports( self::FEATURE_PAYMENT_METHODS );
 	}
 
 
